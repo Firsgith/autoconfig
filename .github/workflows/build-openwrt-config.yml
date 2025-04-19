@@ -12,7 +12,7 @@ jobs:
     env:
       OPENWRT_REPO: https://github.com/openwrt/openwrt.git  # 默认 OpenWrt 仓库
       OPENWRT_BRANCH: master  # 默认分支
-      OPENWRT_SRC: ${{ github.workspace }}/src  # 默认源码目录
+      OPENWRT_SRC: ${{ github.workspace }}  # 默认源码目录
 
     steps:
       # 克隆 OpenWrt 源码
