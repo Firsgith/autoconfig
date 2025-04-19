@@ -24,9 +24,15 @@ jobs:
         run: |
           rm -rf ${{ env.OPENWRT_SRC }}
           mkdir -p ${{ env.OPENWRT_SRC }}
-          git clone ${{ env.OPENWRT_REPO }} ${{ env.OPENWRT_SRC }}
+          git clone --depth 1 ${{ env.OPENWRT_REPO }} ${{ env.OPENWRT_SRC }}
           cd ${{ env.OPENWRT_SRC }}
           git checkout ${{ env.OPENWRT_BRANCH }}
+
+      # 验证 OpenWrt 源码是否正确克隆
+      - name: Verify OpenWrt source code
+        run: |
+          ls -l ${{ env.OPENWRT_SRC }}
+          test -f ${{ env.OPENWRT_SRC }}/Kconfig || echo "Error: Kconfig file not found!"
 
       # 更新 Feeds
       - name: Update and install feeds
