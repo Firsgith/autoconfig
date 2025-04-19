@@ -4,6 +4,7 @@ import sys
 import subprocess
 import logging
 from concurrent.futures import ThreadPoolExecutor
+import glob
 
 # 配置日志记录
 logging.basicConfig(
@@ -21,19 +22,33 @@ if not OPENWRT_SRC:
 logging.info(f"OPENWRT_SRC is set to: {OPENWRT_SRC}")
 
 # 初始化 Kconfig 对象，指定源代码根目录
-kconfig_path = os.path.join(OPENWRT_SRC, "Kconfig")  # 默认路径
-if not os.path.isfile(kconfig_path):
-    logging.error(f"Error: Kconfig file not found at '{kconfig_path}'.")
-    sys.exit(1)
+def load_kconfig():
+    # 默认路径
+    kconfig_path = os.path.join(OPENWRT_SRC, "Kconfig")
+    if not os.path.isfile(kconfig_path):
+        # 尝试查找 Kconfig 文件的实际路径
+        possible_paths = glob.glob(os.path.join(OPENWRT_SRC, "**", "Kconfig"), recursive=True)
+        if not possible_paths:
+            logging.error(f"Error: Kconfig file not found in '{OPENWRT_SRC}' or its subdirectories.")
+            sys.exit(1)
+        kconfig_path = possible_paths[0]  # 使用找到的第一个路径
 
-logging.info(f"Loading Kconfig file from: {kconfig_path}")
-kconf = Kconfig(kconfig_path)
+    logging.info(f"Loading Kconfig file from: {kconfig_path}")
+    return Kconfig(kconfig_path)
+
+kconf = load_kconfig()
 
 # 加载现有配置（如果存在）
 try:
-    kconf.load_config(os.path.join(OPENWRT_SRC, ".config"))
-except FileNotFoundError:
-    logging.warning("No existing .config file found. Starting with a clean configuration.")
+    default_config_path = os.path.join(OPENWRT_SRC, ".config")
+    if os.path.isfile(default_config_path):
+        logging.info(f"Loading existing .config file from: {default_config_path}")
+        kconf.load_config(default_config_path)
+    else:
+        logging.warning("No existing .config file found. Starting with a clean configuration.")
+except Exception as e:
+    logging.error(f"Error loading .config file: {e}")
+    sys.exit(1)
 
 # 用于跟踪已启用的依赖项，避免重复处理
 enabled_dependencies = set()
@@ -127,8 +142,9 @@ for config_var in target_config_vars:
 kconf.sync_all()
 
 # 写入新的 .config 文件
-kconf.write_config(os.path.join(OPENWRT_SRC, ".config"))
-logging.info("Generated .config file successfully.")
+new_config_path = os.path.join(OPENWRT_SRC, ".config")
+logging.info(f"Writing new .config file to: {new_config_path}")
+kconf.write_config(new_config_path)
 
 # 运行 make oldconfig 确保配置完整
 def run_make_oldconfig():
@@ -141,3 +157,5 @@ def run_make_oldconfig():
         sys.exit(1)
 
 run_make_oldconfig()
+
+logging.info("Configuration generation completed successfully.")
