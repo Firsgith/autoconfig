@@ -4,7 +4,6 @@ import sys
 import subprocess
 import logging
 from concurrent.futures import ThreadPoolExecutor
-import glob
 
 # 配置日志记录
 logging.basicConfig(
@@ -23,15 +22,10 @@ logging.info(f"OPENWRT_SRC is set to: {OPENWRT_SRC}")
 
 # 初始化 Kconfig 对象，指定源代码根目录
 def load_kconfig():
-    # 默认路径
-    kconfig_path = os.path.join(OPENWRT_SRC, "Kconfig")
+    kconfig_path = os.path.join(OPENWRT_SRC, "Kconfig")  # 默认路径
     if not os.path.isfile(kconfig_path):
-        # 尝试查找 Kconfig 文件的实际路径
-        possible_paths = glob.glob(os.path.join(OPENWRT_SRC, "**", "Kconfig"), recursive=True)
-        if not possible_paths:
-            logging.error(f"Error: Kconfig file not found in '{OPENWRT_SRC}' or its subdirectories.")
-            sys.exit(1)
-        kconfig_path = possible_paths[0]  # 使用找到的第一个路径
+        logging.error(f"Error: Kconfig file not found at '{kconfig_path}'.")
+        sys.exit(1)
 
     logging.info(f"Loading Kconfig file from: {kconfig_path}")
     return Kconfig(kconfig_path)
@@ -73,12 +67,10 @@ def read_packages_file():
             if any(char.isspace() for char in line):
                 logging.error(f"Error: Invalid package name '{line}' on line {line_num}. Package names cannot contain spaces.")
                 sys.exit(1)
-            if not line.startswith("CONFIG_PACKAGE_"):
-                config_var = "CONFIG_PACKAGE_" + line
-                logging.info(f"Adding prefix 'CONFIG_PACKAGE_' to line {line_num}: '{line}' -> '{config_var}'.")
-                target_config_vars.append(config_var)
-            else:
-                target_config_vars.append(line)
+            # 保留原始格式，仅添加 CONFIG_PACKAGE_ 前缀
+            config_var = f"CONFIG_PACKAGE_{line}"
+            logging.info(f"Adding prefix 'CONFIG_PACKAGE_' to line {line_num}: '{line}' -> '{config_var}'.")
+            target_config_vars.append(config_var)
 
     if not target_config_vars:
         logging.error("Error: No valid package names found in 'packages' file.")
