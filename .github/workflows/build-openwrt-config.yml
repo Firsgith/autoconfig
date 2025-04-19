@@ -39,7 +39,7 @@ jobs:
       - name: Install Kconfiglib
         run: |
           pip uninstall -y kconfiglib
-          pip install --upgrade kconfiglib
+          pip install kconfiglib
 
       # 运行生成配置的脚本
       - name: Run configuration script
