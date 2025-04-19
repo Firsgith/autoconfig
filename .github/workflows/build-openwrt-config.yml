@@ -38,6 +38,7 @@ jobs:
       # 安装 Python 和 Kconfiglib (升级到最新版本)
       - name: Install Kconfiglib
         run: |
+          pip uninstall -y kconfiglib
           pip install --upgrade kconfiglib
 
       # 运行生成配置的脚本
