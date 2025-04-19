@@ -10,9 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      OPENWRT_REPO: https://github.com/coolsnowwolf/lede.git  # 默认 OpenWrt 仓库
-      OPENWRT_BRANCH: master  # 默认分支
-      OPENWRT_SRC: ${{ github.workspace }}/openwrt  # 克隆到子目录！！！
+      OPENWRT_REPO: https://github.com/coolsnowwolf/lede.git
+      OPENWRT_BRANCH: master
+      OPENWRT_SRC: ${{ github.workspace }}/openwrt
 
     steps:
       # 克隆当前仓库
