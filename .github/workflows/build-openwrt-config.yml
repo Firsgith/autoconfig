@@ -12,7 +12,7 @@ jobs:
     env:
       OPENWRT_REPO: https://github.com/coolsnowwolf/lede.git
       OPENWRT_BRANCH: master
-      OPENWRT_SRC: ${{ github.workspace }}/openwrt
+      OPENWRT_SRC: ${{ github.workspace }}/src
 
     steps:
       # 克隆當前倉庫
