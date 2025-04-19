@@ -12,16 +12,18 @@ jobs:
     env:
       OPENWRT_REPO: https://github.com/coolsnowwolf/lede.git  # 默认 OpenWrt 仓库
       OPENWRT_BRANCH: master  # 默认分支
-      OPENWRT_SRC: ${{ github.workspace }}  # 默认源码目录
+      OPENWRT_SRC: ${{ github.workspace }}/openwrt  # 克隆到子目录！！！
 
     steps:
-      # 克隆 OpenWrt 源码
+      # 克隆当前仓库
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # 克隆 OpenWrt 源码到子目录
       - name: Clone OpenWrt source code
         run: |
-          rm -rf ${{ env.OPENWRT_SRC }}  # 强制删除目标目录及其内容
+          rm -rf ${{ env.OPENWRT_SRC }}
+          mkdir -p ${{ env.OPENWRT_SRC }}
           git clone ${{ env.OPENWRT_REPO }} ${{ env.OPENWRT_SRC }}
           cd ${{ env.OPENWRT_SRC }}
           git checkout ${{ env.OPENWRT_BRANCH }}
