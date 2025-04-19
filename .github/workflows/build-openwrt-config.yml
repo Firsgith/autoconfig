@@ -35,15 +35,10 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      # 安装 Python 和 Kconfiglib
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
+      # 安装 Python 和 Kconfiglib (升级到最新版本)
       - name: Install Kconfiglib
         run: |
-          pip install kconfiglib
+          pip install --upgrade kconfiglib
 
       # 运行生成配置的脚本
       - name: Run configuration script
