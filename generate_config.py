@@ -4,7 +4,6 @@ import sys
 import subprocess
 import logging
 from concurrent.futures import ThreadPoolExecutor
-import glob
 
 # 配置日志记录
 logging.basicConfig(
@@ -24,15 +23,17 @@ logging.info(f"OPENWRT_SRC is set to: {OPENWRT_SRC}")
 # 初始化 Kconfig 对象，指定源代码根目录
 kconfig_path = os.path.join(OPENWRT_SRC, "Kconfig")  # 默认路径
 if not os.path.isfile(kconfig_path):
-    # 尝试查找 Kconfig 文件的实际路径
-    possible_paths = glob.glob(os.path.join(OPENWRT_SRC, "**", "Kconfig"), recursive=True)
-    if not possible_paths:
-        logging.error(f"Error: Kconfig file not found in '{OPENWRT_SRC}' or its subdirectories.")
-        sys.exit(1)
-    kconfig_path = possible_paths[0]  # 使用找到的第一个路径
+    logging.error(f"Error: Kconfig file not found at '{kconfig_path}'.")
+    sys.exit(1)
 
 logging.info(f"Loading Kconfig file from: {kconfig_path}")
 kconf = Kconfig(kconfig_path)
+
+# 加载现有配置（如果存在）
+try:
+    kconf.load_config(os.path.join(OPENWRT_SRC, ".config"))
+except FileNotFoundError:
+    logging.warning("No existing .config file found. Starting with a clean configuration.")
 
 # 用于跟踪已启用的依赖项，避免重复处理
 enabled_dependencies = set()
@@ -111,6 +112,7 @@ for config_var in target_config_vars:
     symbol = kconf.syms.get(config_var)
     if symbol is None:
         logging.error(f"Error: Config variable {config_var} not found!")
+        logging.info(f"Available symbols: {list(kconf.syms.keys())}")
         sys.exit(1)
 
     if symbol.choice and symbol.choice.selection != symbol:
@@ -123,12 +125,6 @@ for config_var in target_config_vars:
 
 # 同步所有配置
 kconf.sync_all()
-
-# 加载现有配置（如果存在）
-try:
-    kconf.load_config(os.path.join(OPENWRT_SRC, ".config"))
-except FileNotFoundError:
-    pass
 
 # 写入新的 .config 文件
 kconf.write_config(os.path.join(OPENWRT_SRC, ".config"))
