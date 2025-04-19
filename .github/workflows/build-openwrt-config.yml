@@ -35,6 +35,12 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
+      # 生成默认的 .config 文件
+      - name: Generate default .config
+        run: |
+          cd ${{ env.OPENWRT_SRC }}
+          make defconfig
+
       # 安装 Python 和 Kconfiglib (強制卸載並重新安裝最新版本)
       - name: Install Kconfiglib
         run: |
