@@ -18,9 +18,16 @@ if not OPENWRT_SRC:
     logging.error("Error: OPENWRT_SRC environment variable not set.")
     sys.exit(1)
 
+logging.info(f"OPENWRT_SRC is set to: {OPENWRT_SRC}")
+
 # 初始化 Kconfig 对象，指定源代码根目录
-# 移除了 srctree 参数
-kconf = Kconfig(os.path.join(OPENWRT_SRC, "Kconfig"))
+kconfig_path = os.path.join(OPENWRT_SRC, "Kconfig")
+if not os.path.isfile(kconfig_path):
+    logging.error(f"Error: Kconfig file not found at '{kconfig_path}'.")
+    sys.exit(1)
+
+logging.info(f"Loading Kconfig file from: {kconfig_path}")
+kconf = Kconfig(kconfig_path)
 
 # 用于跟踪已启用的依赖项，避免重复处理
 enabled_dependencies = set()
