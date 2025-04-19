@@ -19,7 +19,8 @@ if not OPENWRT_SRC:
     sys.exit(1)
 
 # 初始化 Kconfig 对象，指定源代码根目录
-kconf = Kconfig(os.path.join(OPENWRT_SRC, "Kconfig"), srctree=OPENWRT_SRC)
+# 移除了 srctree 参数
+kconf = Kconfig(os.path.join(OPENWRT_SRC, "Kconfig"))
 
 # 用于跟踪已启用的依赖项，避免重复处理
 enabled_dependencies = set()
