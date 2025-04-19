@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      OPENWRT_REPO: https://github.com/openwrt/openwrt.git  # 默认 OpenWrt 仓库
+      OPENWRT_REPO: https://github.com/coolsnowwolf/lede.git  # 默认 OpenWrt 仓库
       OPENWRT_BRANCH: master  # 默认分支
       OPENWRT_SRC: ${{ github.workspace }}  # 默认源码目录
 
