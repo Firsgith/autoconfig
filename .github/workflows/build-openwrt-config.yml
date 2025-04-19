@@ -3,7 +3,7 @@ name: Generate OpenWrt Config
 on:
   push:
     branches:
-      - main  # 触发条件：推送到 main 分支
+      - main  # 觸發條件：推送到 main 分支
 
 jobs:
   generate-config:
@@ -15,11 +15,16 @@ jobs:
       OPENWRT_SRC: ${{ github.workspace }}/openwrt
 
     steps:
-      # 克隆当前仓库
+      # 克隆當前倉庫
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 克隆 OpenWrt 源码到子目录
+      # 執行 ImmortalWrt 初始化腳本
+      - name: Initialize build environment
+        run: |
+          sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+
+      # 克隆 OpenWrt 源码到子目錄
       - name: Clone OpenWrt source code
         run: |
           rm -rf ${{ env.OPENWRT_SRC }}
@@ -35,7 +40,7 @@ jobs:
           ./scripts/feeds update -a
           ./scripts/feeds install -a
 
-      # 安装 Python 和 Kconfiglib (升级到最新版本)
+      # 安装 Python 和 Kconfiglib (強制卸載並重新安裝最新版本)
       - name: Install Kconfiglib
         run: |
           pip uninstall -y kconfiglib
