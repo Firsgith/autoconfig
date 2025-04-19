@@ -1,112 +1,92 @@
-from kconfiglib import Kconfig
-import os
-import sys
+name: Generate OpenWrt Config
 
-# 设置 OpenWrt 源代码根目录 (直接从环境变量获取)
-OPENWRT_SRC = os.environ.get("OPENWRT_SRC")
-if not OPENWRT_SRC:
-    print("Error: OPENWRT_SRC environment variable not set.")
-    sys.exit(1)
+on:
+  push:
+    branches:
+      - main  # 触发条件：推送到 main 分支
 
-# 初始化 Kconfig 对象，指定源代码根目录
-kconf = Kconfig(os.path.join(OPENWRT_SRC, "Kconfig"))
+jobs:
+  generate-config:
+    runs-on: ubuntu-latest
 
-# 用于跟踪已启用的依赖项，避免重复处理
-enabled_dependencies = set()
+    env:
+      OPENWRT_REPO: https://github.com/openwrt/openwrt.git  # 默认 OpenWrt 仓库
+      OPENWRT_BRANCH: master  # 默认分支
+      OPENWRT_SRC: ${{ github.workspace }}/src  # 默认源码目录
 
-# 从 packages 文件读取目标软件包列表
-def read_packages_file():
-    packages_file = "packages"
-    if not os.path.isfile(packages_file):
-        print(f"Error: The file '{packages_file}' does not exist.")
-        sys.exit(1)
+    steps:
+      # 克隆 OpenWrt 源码
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    target_config_vars = []
-    with open(packages_file, "r") as f:
-        for line_num, line in enumerate(f, 1):
-            line = line.strip()
-            if not line:
-                print(f"Skipping empty line {line_num} in '{packages_file}'.")
-                continue
-            if line.startswith("#"):
-                print(f"Skipping comment line {line_num}: '{line}' in '{packages_file}'.")
-                continue
-            if not line.startswith("CONFIG_PACKAGE_"):
-                config_var = "CONFIG_PACKAGE_" + line
-                print(f"Adding prefix 'CONFIG_PACKAGE_' to line {line_num}: '{line}' -> '{config_var}'.")
-                target_config_vars.append(config_var)
-            else:
-                target_config_vars.append(line)
+      - name: Clone OpenWrt source code
+        run: |
+          rm -rf ${{ env.OPENWRT_SRC }}  # 强制删除目标目录及其内容
+          git clone ${{ env.OPENWRT_REPO }} ${{ env.OPENWRT_SRC }}
+          cd ${{ env.OPENWRT_SRC }}
+          git checkout ${{ env.OPENWRT_BRANCH }}
 
-    if not target_config_vars:
-        print("Error: No valid package names found in 'packages' file.")
-        sys.exit(1)
+      # 更新 Feeds
+      - name: Update and install feeds
+        run: |
+          cd ${{ env.OPENWRT_SRC }}
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
 
-    return target_config_vars
+      # 安装 Python 和 Kconfiglib
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
 
-target_config_vars = read_packages_file()
+      - name: Install Kconfiglib
+        run: |
+          pip install kconfiglib
 
-# 递归地启用依赖项，避免重复处理
-def enable_dependencies(symbol):
-    if symbol is None or symbol.name in enabled_dependencies:
-        return
+      # 运行生成配置的脚本
+      - name: Run configuration script
+        run: |
+          python ${{ github.workspace }}/generate_config.py
+        env:
+          OPENWRT_SRC: ${{ env.OPENWRT_SRC }}
 
-    enabled_dependencies.add(symbol.name)
+      # 运行 make oldconfig 确保配置完整
+      - name: Run make oldconfig
+        run: |
+          cd ${{ env.OPENWRT_SRC }}
+          make oldconfig -y
 
-    for dep in symbol.all_depends():
-        if dep.type in (Kconfig.BOOLEAN, Kconfig.TRISTATE) and dep.str_value == 'n':
-            print(f"Enabling dependency: {dep.name}")
-            dep.set_value(2)
-            enable_dependencies(dep)
+      # 读取 packages 文件并设置步骤输出
+      - name: Read packages file for validation
+        id: read-packages
+        run: |
+          PACKAGES=$(cat packages | grep -v '^#' | grep -v '^$' | sed 's/^/CONFIG_PACKAGE_/')
+          echo "::set-output name=package_list::$PACKAGES"
 
-# 检测冲突
-def check_conflicts(symbol):
-    if symbol is None or symbol.str_value != 'y':
-        return
+      # 验证生成的 .config 文件
+      - name: Validate generated .config
+        run: |
+          # 定义验证函数
+          validate_config() {
+            local missing_packages=""
+            cd ${{ env.OPENWRT_SRC }}
 
-    # 检查 imply ! 冲突
-    for imp in symbol.implies:
-        if imp.negated:
-            conflicting_sym = imp.expr.symbol
-            if conflicting_sym and conflicting_sym.str_value == 'y':
-                print(f"Conflict: {symbol.name} implies disabling {conflicting_sym.name}.")
+            # 遍历所有目标包
+            for package in $1; do
+              if ! grep -q "$package=y" .config; then
+                missing_packages+="$package "
+              fi
+            done
 
-# 启用目标软件包并处理依赖和冲突
-for config_var in target_config_vars:
-    symbol = kconf.syms.get(config_var)
-    if symbol is None:
-        print(f"Error: Config variable {config_var} not found!")
-        sys.exit(1)
+            # 如果有缺失的包，输出错误信息并退出
+            if [ -n "$missing_packages" ]; then
+              echo "Error: The following packages are missing in .config:"
+              echo "$missing_packages"
+              exit 1
+            else
+              echo ".config file validated successfully."
+            fi
+          }
 
-    if symbol.choice and symbol.choice.selection != symbol:
-        print(f"Conflict detected: {symbol.name} is part of a choice group.")
-        continue
-
-    symbol.set_value(2)
-    enable_dependencies(symbol)
-    check_conflicts(symbol)
-
-# 同步所有配置
-kconf.sync_all()
-
-# 加载现有配置（如果存在）
-try:
-    kconf.load_config(os.path.join(OPENWRT_SRC, ".config"))
-except FileNotFoundError:
-    pass
-
-# 写入新的 .config 文件
-kconf.write_config(os.path.join(OPENWRT_SRC, ".config"))
-print("Generated .config file successfully.")
-
-# 运行 make oldconfig 确保配置完整
-def run_make_oldconfig():
-    try:
-        print("Running 'make oldconfig' to finalize configuration...")
-        subprocess.run(["make", "oldconfig"], cwd=OPENWRT_SRC, check=True)
-        print("'make oldconfig' completed successfully.")
-    except subprocess.CalledProcessError as e:
-        print(f"Error running 'make oldconfig': {e}")
-        exit(1)
-
-run_make_oldconfig()
+          # 调用验证函数
+          validate_config "${{ steps.read-packages.outputs.package_list }}"
