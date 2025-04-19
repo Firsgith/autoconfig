@@ -4,6 +4,7 @@ import sys
 import subprocess
 import logging
 from concurrent.futures import ThreadPoolExecutor
+import glob
 
 # 配置日志记录
 logging.basicConfig(
@@ -21,10 +22,14 @@ if not OPENWRT_SRC:
 logging.info(f"OPENWRT_SRC is set to: {OPENWRT_SRC}")
 
 # 初始化 Kconfig 对象，指定源代码根目录
-kconfig_path = os.path.join(OPENWRT_SRC, "Kconfig")
+kconfig_path = os.path.join(OPENWRT_SRC, "Kconfig")  # 默认路径
 if not os.path.isfile(kconfig_path):
-    logging.error(f"Error: Kconfig file not found at '{kconfig_path}'.")
-    sys.exit(1)
+    # 尝试查找 Kconfig 文件的实际路径
+    possible_paths = glob.glob(os.path.join(OPENWRT_SRC, "**", "Kconfig"), recursive=True)
+    if not possible_paths:
+        logging.error(f"Error: Kconfig file not found in '{OPENWRT_SRC}' or its subdirectories.")
+        sys.exit(1)
+    kconfig_path = possible_paths[0]  # 使用找到的第一个路径
 
 logging.info(f"Loading Kconfig file from: {kconfig_path}")
 kconf = Kconfig(kconfig_path)
