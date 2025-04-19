@@ -10,17 +10,20 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      OPENWRT_REPO: https://github.com/openwrt/openwrt.git  # 默认 OpenWrt 仓库
+      OPENWRT_REPO: https://github.com/coolsnowwolf/lede.git  # 默认 OpenWrt 仓库
       OPENWRT_BRANCH: master  # 默认分支
-      OPENWRT_SRC: ${{ github.workspace }}  # 默认源码目录
+      OPENWRT_SRC: ${{ github.workspace }}/openwrt  # 克隆到子目录！！！
 
     steps:
-      # 克隆 OpenWrt 源码
+      # 克隆当前仓库
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      # 克隆 OpenWrt 源码到子目录
       - name: Clone OpenWrt source code
         run: |
+          rm -rf ${{ env.OPENWRT_SRC }}
+          mkdir -p ${{ env.OPENWRT_SRC }}
           git clone ${{ env.OPENWRT_REPO }} ${{ env.OPENWRT_SRC }}
           cd ${{ env.OPENWRT_SRC }}
           git checkout ${{ env.OPENWRT_BRANCH }}
@@ -67,24 +70,24 @@ jobs:
         run: |
           # 定义验证函数
           validate_config() {
-              local missing_packages=""
-              cd ${{ env.OPENWRT_SRC }}
+            local missing_packages=""
+            cd ${{ env.OPENWRT_SRC }}
 
-              # 遍历所有目标包
-              for package in $1; do
-                  if ! grep -q "$package=y" .config; then
-                      missing_packages+="$package "
-                  fi
-              done
-
-              # 如果有缺失的包，输出错误信息并退出
-              if [ -n "$missing_packages" ]; then
-                  echo "Error: The following packages are missing in .config:"
-                  echo "$missing_packages"
-                  exit 1
-              else
-                  echo ".config file validated successfully."
+            # 遍历所有目标包
+            for package in $1; do
+              if ! grep -q "$package=y" .config; then
+                missing_packages+="$package "
               fi
+            done
+
+            # 如果有缺失的包，输出错误信息并退出
+            if [ -n "$missing_packages" ]; then
+              echo "Error: The following packages are missing in .config:"
+              echo "$missing_packages"
+              exit 1
+            else
+              echo ".config file validated successfully."
+            fi
           }
 
           # 调用验证函数
