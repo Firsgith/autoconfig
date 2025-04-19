@@ -23,16 +23,16 @@ jobs:
       - name: Clone OpenWrt source code
         run: |
           rm -rf ${{ env.OPENWRT_SRC }}
-          mkdir -p ${{ env.OPENWRT_SRC }}
-          git clone --depth 1 ${{ env.OPENWRT_REPO }} ${{ env.OPENWRT_SRC }}
+          git clone --depth 1 ${{ env.OPENWRT_REPO }} ${{ env.OPENWRT_SRC }} || (echo "Error: Failed to clone OpenWrt repository." && exit 1)
           cd ${{ env.OPENWRT_SRC }}
-          git checkout ${{ env.OPENWRT_BRANCH }}
+          git checkout ${{ env.OPENWRT_BRANCH }} || (echo "Error: Failed to checkout branch '${{ env.OPENWRT_BRANCH }}'." && exit 1)
 
-      # 验证 OpenWrt 源码是否正确克隆
-      - name: Verify OpenWrt source code
-        run: |
-          ls -l ${{ env.OPENWRT_SRC }}
-          test -f ${{ env.OPENWRT_SRC }}/Kconfig || echo "Error: Kconfig file not found!"
+          # 验证 Kconfig 文件是否存在
+          if [ ! -f "${{ env.OPENWRT_SRC }}/Kconfig" ]; then
+            echo "Error: Kconfig file not found in ${{ env.OPENWRT_SRC }}!"
+            exit 1
+          fi
+          echo "Kconfig file verified successfully."
 
       # 更新 Feeds
       - name: Update and install feeds
@@ -56,7 +56,7 @@ jobs:
       # 运行生成配置的脚本
       - name: Run configuration script
         run: |
-          python ${{ github.workspace }}/generate_config.py
+          python ${{ github.workspace }}/generate_config.py || (echo "Error: Failed to run generate_config.py" && exit 1)
         env:
           OPENWRT_SRC: ${{ env.OPENWRT_SRC }}
 
@@ -76,19 +76,16 @@ jobs:
       # 验证生成的 .config 文件
       - name: Validate generated .config
         run: |
-          # 定义验证函数
           validate_config() {
             local missing_packages=""
             cd ${{ env.OPENWRT_SRC }}
 
-            # 遍历所有目标包
             for package in $1; do
               if ! grep -q "$package=y" .config; then
                 missing_packages+="$package "
               fi
             done
 
-            # 如果有缺失的包，输出错误信息并退出
             if [ -n "$missing_packages" ]; then
               echo "Error: The following packages are missing in .config:"
               echo "$missing_packages"
@@ -98,5 +95,4 @@ jobs:
             fi
           }
 
-          # 调用验证函数
           validate_config "${{ steps.read-packages.outputs.package_list }}"
